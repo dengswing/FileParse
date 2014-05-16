@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx" width="500" height="470" applicationComplete="init()">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			
+			import framecore.frameAPI.remoting.json.JSON1;
+			
+			/*private var monthsList:ArrayCollection =  new ArrayCollection([{label:"All", data:0},												
+											  {label:"iId", data:1},												
+											  {label:"iName", data:2},
+											  {label:"iType", data:3},
+											  {label:"iOrder", data:4}]);*/
+			
+			private function init():void
+			{
+				excel_txt.text ="选择文件或输入路径";
+				//list_mc.dataProvider =monthsList;
+				//list_mc.selectedIndex=0;
+			}
+			
+			private function onCreate(path:String,type:int=1):void 
+			{
+				if(type==1)
+					otherFileLoader(path,finishBack);
+				else 
+					downLoadFile(path,finishBack);
+				
+				var arr:ArrayCollection = new ArrayCollection();
+				var aGetList:Array=[];
+				
+				function finishBack( obj:Object ):void
+				{
+					for(var i:* in obj)
+					{
+						//arr.addItem( { iId:int(obj[i]["iId"]), iName:obj[i]["iName"], iType:obj[i]["iType"], iOrder:int(obj[i]["iOrder"]) } );
+						arr.addItem( getKey(obj[i]) );
+					}
+					
+					dataGrid_mc.dataProvider = arr;
+					setColumnsWidth(dataGrid_mc)
+					
+					var monthsList:ArrayCollection =  new ArrayCollection(aGetList)
+						
+					list_mc.dataProvider =monthsList;
+					list_mc.selectedIndex=0;
+				}
+				
+				function getKey(data:Object):Object
+				{
+					aGetList=[];
+					var tOb:Object=new Object();
+					for(var k:* in data)
+					{
+						tOb[k]=(regNum(data[k]) ? int(data[k]) : data[k]);
+						aGetList.push({label:k});
+					}
+					
+					return tOb;
+				}				
+			}
+			
+			private function regNum(sValue:String):Boolean
+			{
+				var isFind:Boolean;
+				if(!sValue) return isFind;
+				var iValue:String=sValue.substring(0,1);
+				for(var i:int=0;i<9;i+=1)
+				{
+					if(i.toString()==iValue)
+					{
+						isFind=true;
+						break;
+					}
+				}
+				
+				return isFind;
+			}
+			
+			public static function setColumnsWidth(dataGrid:DataGrid):void
+			{
+				var gridWidth:int=0;
+				for(var i:int=0;i<dataGrid.columnCount;i++)
+				{
+					var column:DataGridColumn=dataGrid.columns[i];
+					var colWidth:int=(column.headerText.length+2)*dataGrid.getStyle("fontSize");
+					column.width=colWidth;
+					gridWidth+=colWidth;
+				}
+				//dataGrid.width=gridWidth;
+			}
+			
+			private var sFind:String;
+			private var iFindIndex:int;
+			
+			/**
+			 * 搜索
+			 * @param	grid
+			 * @param	s
+			 * @return
+			 */
+			private function search(grid:DataGrid, s:String, index:String = null):Boolean 			
+			{
+				if (s != sFind) 
+				{ 
+					sFind = s;
+					iFindIndex = 0;
+				}
+				
+				var isFind:Boolean;
+				var idx:int = -1;
+				var _index:int = 0;
+				for each(var item:Object in grid.dataProvider)
+				{
+					idx++;
+					for each(var col:DataGridColumn in grid.columns)
+					{
+						
+					   if ((index == "All" || index == col.dataField) && col.dataField != null && String(item[col.dataField]).indexOf(s) != -1)
+					   {
+						   if (_index >= iFindIndex)
+						   {
+							   iFindIndex += 1;
+							   grid.selectedItem = item;
+							   grid.scrollToIndex(idx);	//将当前行滚动到可视范围内
+							   isFind = true;
+							   return isFind;
+						   }
+						   
+						   _index += 1;
+					   }
+					}
+				}
+				
+				if (!isFind) iFindIndex = 0;
+				return isFind;
+			}
+			
+			/**
+			 * 加载其他后缀的文件
+			 * @param	xPath	路径
+			 * @param	finishBack	加载成功回调
+			 */
+			private function otherFileLoader(xPath:String, finishBack:Function):void		
+			{
+				var request:URLRequest = new URLRequest(xPath);			
+				request.contentType = "file";
+				request.method = URLRequestMethod.GET;
+				
+				var loader:URLLoader = new URLLoader();
+				loader.dataFormat = URLLoaderDataFormat.BINARY;
+				loader.load(request);
+				configureListeners(loader,finishBack,xPath);
+			}
+			
+			private function configureListeners(dispatcher:IEventDispatcher,finishBack:Function,xPath:String):void {
+				   dispatcher.addEventListener(SecurityErrorEvent.SECURITY_ERROR,function(e:SecurityErrorEvent):void
+					{
+						Alert.show("load securityError =" + xPath,"Error");
+					});
+				  dispatcher.addEventListener(IOErrorEvent.IO_ERROR, function(e:IOErrorEvent):void
+					{
+						Alert.show("load Error=" + xPath,"Error");
+					});
+					
+				 dispatcher.addEventListener(Event.COMPLETE, function(event:Event):void
+					{			
+						/*try
+						{*/
+							var data:ByteArray = (event.currentTarget.data as ByteArray);
+							data.uncompress();
+							var obj:Object = JSON1.decode(data.toString());				
+							if (finishBack != null) finishBack(obj);
+						/*}catch (e:Error)
+						{
+							Alert.show("uncompress fail url=" + xPath,"Error");
+						}*/
+					});
+			}
+			
+			private function downLoadFile(xPath:String, finishBack:Function):void
+			{
+				var downloadURL:URLRequest = new URLRequest();
+				downloadURL.url = xPath;
+				var loader:Loader = new Loader();			
+				loader.load(downloadURL);
+				configureListeners(loader.contentLoaderInfo,finishBack,xPath);
+			}
+			
+			protected function onBrowseProject(event:MouseEvent):void
+			{	
+				var file:File = new File();
+				file.browseForOpen("选择文件或输入路径");
+				file.addEventListener(Event.SELECT,onProjectSelected);
+			}
+			
+			protected function onProjectSelected(event:Event):void
+			{
+				var file:File = event.target as File;
+				excel_txt.text =file.nativePath;		
+				
+				onCreate(excel_txt.text);
+			}
+			
+			protected function start_btn_clickHandler(event:MouseEvent):void
+			{
+				if(excel_txt.text=="选择文件或输入路径")
+				{
+					Alert.show("选择文件或输入路径","Error");
+					return;
+				}
+				onCreate(excel_txt.text);
+			}
+
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				if(!search(dataGrid_mc,search_txt.text,list_mc.selectedItem.label))
+				{
+					Alert.show("未查询到 "+list_mc.selectedItem.label+"="+search_txt.text,"Error");
+				} 
+			}
+
+			protected function button2_clickHandler(event:MouseEvent):void
+			{
+				onCreate(excel_txt.text,1);
+			}
+
+		]]>
+	</fx:Script>
+	<mx:Form x="0" y="0" width="500" height="470">
+		<s:Label text="物品表解析工具" width="456" height="21" verticalAlign="middle" textAlign="center"/>
+		<s:BorderContainer width="456" height="399">
+			<s:Button x="316" y="10" label="选择文件路径" width="61" id="choose_btn" click="onBrowseProject(event)"/>
+			<s:TextInput x="8" y="9" width="299" id="excel_txt"/>
+			<mx:DataGrid x="9" y="65" width="434" height="322" id="dataGrid_mc" horizontalScrollPolicy="on">
+			</mx:DataGrid>
+			<s:Button x="315" y="38" label="搜索" click="button1_clickHandler(event)" width="61"/>
+			<s:TextInput x="86" y="38" width="220" id="search_txt"/>
+			<s:ComboBox x="10" y="36" width="70" id="list_mc"/>
+			<s:Button x="383" y="10" label="加载文件" width="64" click="button2_clickHandler(event)"/>
+		</s:BorderContainer>
+		
+	</mx:Form>
+</s:WindowedApplication>
