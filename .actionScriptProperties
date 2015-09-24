@@ -24,7 +24,7 @@
   <flashCatalyst validateFlashCatalystCompatibility="false"/>
   <buildTargets>
     <buildTarget buildTargetName="default" platformId="default">
-      <airSettings airCertificatePath="F:/work/tools/FileParse/key.p12" airTimestamp="true" anePathSet="true" version="1">
+      <airSettings airCertificatePath="F:/self/git/FileParse/key_123456.p12" airTimestamp="true" anePathSet="true" version="1">
         <airExcludes/>
         <anePaths/>
         <newLaunchParams/>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
 					   xmlns:s="library://ns.adobe.com/flex/spark" 
-					   xmlns:mx="library://ns.adobe.com/flex/mx" width="500" height="470" applicationComplete="init()">
+					   xmlns:mx="library://ns.adobe.com/flex/mx" width="780" height="640" applicationComplete="init()">
 	<fx:Declarations>
 		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
 	</fx:Declarations>
@@ -21,13 +21,41 @@
 			
 			private function init():void
 			{
-				excel_txt.text ="选择文件或输入路径";
+				var m:String=getValue("changePath");
+				excel_txt.text =(m ? m :  "选择文件或输入路径") ;
 				//list_mc.dataProvider =monthsList;
 				//list_mc.selectedIndex=0;
 			}
 			
+			private function getValue(m:String):String
+			{
+				var sharedObject:SharedObject = SharedObject.getLocal("fileParse", "/");				
+				return (sharedObject.data.hasOwnProperty(m) ? sharedObject.data[m] : null);
+			}
+			
+			private function saveValue(key:String,m:String=null):void
+			{
+				var sharedObject:SharedObject = SharedObject.getLocal("fileParse", "/");
+				sharedObject.data[key] = m;
+				
+				try
+				{
+					var flushResult:String = sharedObject.flush();
+					if (flushResult == SharedObjectFlushStatus.FLUSHED)
+					{
+						return;
+					}
+				}
+				catch (e:Error)
+				{
+					Security.showSettings(SecurityPanel.LOCAL_STORAGE);
+				}
+			}
+			
 			private function onCreate(path:String,type:int=1):void 
 			{
+				saveValue("changePath",path);
+				
 				if(type==1)
 					otherFileLoader(path,finishBack);
 				else 
@@ -35,32 +63,58 @@
 				
 				var arr:ArrayCollection = new ArrayCollection();
 				var aGetList:Array=[];
-				
+				var tempList:Array=[];
+				var tempObj:Object=new Object();
 				function finishBack( obj:Object ):void
 				{
 					for(var i:* in obj)
 					{
-						//arr.addItem( { iId:int(obj[i]["iId"]), iName:obj[i]["iName"], iType:obj[i]["iType"], iOrder:int(obj[i]["iOrder"]) } );
-						arr.addItem( getKey(obj[i]) );
+						//arr.addItem( { iId:int(obj[i]["iId"]), iName:obj[i]["iName"], iType:obj[i]["iType"], iOrder:int(obj[i]["iOrder"]) } );						
+						tempObj[i]=getKey(obj[i]);
 					}
+					
+					
+					for(var k:* in tempObj)
+					{
+						arr.addItem(parseValue(tempObj[k],tempList));
+					}
+					
 					
 					dataGrid_mc.dataProvider = arr;
 					setColumnsWidth(dataGrid_mc)
 					
+					
+					tempList.sort();
+					for(var j:* in tempList)
+					{
+						aGetList.push({label:tempList[j]});
+					}
+					
 					var monthsList:ArrayCollection =  new ArrayCollection(aGetList)
-						
 					list_mc.dataProvider =monthsList;
+					
 					list_mc.selectedIndex=0;
+				}
+				
+				function parseValue(data:Object,nameList:Array):Object
+				{
+					var key:String;
+					var tOb:Object=new Object();
+					for(var i:* in nameList)
+					{
+						key=nameList[i];
+						tOb[key]=data[key];
+					}
+					return tOb;
 				}
 				
 				function getKey(data:Object):Object
 				{
-					aGetList=[];
 					var tOb:Object=new Object();
 					for(var k:* in data)
 					{
 						tOb[k]=(regNum(data[k]) ? int(data[k]) : data[k]);
-						aGetList.push({label:k});
+						if(tempList.indexOf(k)==-1) tempList.push(k);
 					}
 					
 					return tOb;
@@ -234,17 +288,19 @@
 
 		]]>
 	</fx:Script>
-	<mx:Form x="0" y="0" width="500" height="470">
-		<s:Label text="物品表解析工具" width="456" height="21" verticalAlign="middle" textAlign="center"/>
-		<s:BorderContainer width="456" height="399">
-			<s:Button x="316" y="10" label="选择文件路径" width="61" id="choose_btn" click="onBrowseProject(event)"/>
-			<s:TextInput x="8" y="9" width="299" id="excel_txt"/>
-			<mx:DataGrid x="9" y="65" width="434" height="322" id="dataGrid_mc" horizontalScrollPolicy="on">
+	<mx:Form x="0" y="0" width="780" height="640">
+		<s:Label text="物品表解析工具" width="750" height="21" verticalAlign="middle" textAlign="center"/>
+		<s:BorderContainer width="750" height="550">
+			<s:TextInput x="8" y="9" width="520" id="excel_txt"/>
+			<s:Button x="540" y="10" label="选择文件路径" width="100" id="choose_btn" click="onBrowseProject(event)"/>			
+			<s:Button x="650" y="10" label="加载文件" width="80" click="button2_clickHandler(event)"/>
+			
+			<mx:DataGrid x="9" y="65" width="740" height="470" id="dataGrid_mc" horizontalScrollPolicy="on">
 			</mx:DataGrid>
-			<s:Button x="315" y="38" label="搜索" click="button1_clickHandler(event)" width="61"/>
-			<s:TextInput x="86" y="38" width="220" id="search_txt"/>
-			<s:ComboBox x="10" y="36" width="70" id="list_mc"/>
-			<s:Button x="383" y="10" label="加载文件" width="64" click="button2_clickHandler(event)"/>
+			
+			<s:Button x="530" y="38" label="搜索" click="button1_clickHandler(event)" width="61"/>
+			<s:TextInput x="220" y="38" width="300" id="search_txt"/>
+			<s:ComboBox x="10" y="36" width="200" id="list_mc"/>
 		</s:BorderContainer>
 		
 	</mx:Form>
